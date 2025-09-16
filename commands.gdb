@@ -93,7 +93,6 @@ n
 n
 n
 n
-finish
 si
 si
 si
