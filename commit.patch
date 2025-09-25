@@ -1,0 +1,303 @@
+diff --git a/.vscode/c_cpp_properties.json b/.vscode/c_cpp_properties.json
+new file mode 100644
+index 0000000..16adcf2
+--- /dev/null
++++ b/.vscode/c_cpp_properties.json
+@@ -0,0 +1,16 @@
++{
++    "configurations": [
++        {
++            "name": "Linux",
++            "includePath": [
++                "${workspaceFolder}/**",
++                "${workspaceFolder}"
++            ],
++            "defines": [],
++            "compilerPath": "/usr/bin/clang",
++            "cppStandard": "c++14",
++            "intelliSenseMode": "linux-clang-x64"
++        }
++    ],
++    "version": 4
++}
+\ No newline at end of file
+diff --git a/.vscode/settings.json b/.vscode/settings.json
+new file mode 100644
+index 0000000..f9edfb8
+--- /dev/null
++++ b/.vscode/settings.json
+@@ -0,0 +1,8 @@
++{
++    "files.associations": {
++        "user.h": "c",
++        "types.h": "c",
++        "stat.h": "c",
++        "fs.h": "c"
++    }
++}
+\ No newline at end of file
+diff --git a/Makefile b/Makefile
+index b971308..1f68a81 100644
+--- a/Makefile
++++ b/Makefile
+@@ -157,6 +157,9 @@ UPROGS=\
+ 	$U/_grind\
+ 	$U/_wc\
+ 	$U/_zombie\
++	$U/_sleep\
++	$U/_pingpong\
++	$U/_find\
+ 
+ 
+ ifeq ($(LAB),syscall)
+@@ -242,15 +245,8 @@ qemu-gdb: $K/kernel .gdbinit fs.img
+ 	@echo "*** Now run 'gdb' in another window." 1>&2
+ 	$(QEMU) $(QEMUOPTS) -S $(QEMUGDB)
+ 
+-GDBARGS = 
+-GDBARGS += -ex 'set architecture riscv:rv64'
+-GDBARGS += -ex 'target remote 127.0.0.1:$(GDBPORT)'
+-GDBARGS += -ex 'symbol-file kernel/kernel'
+-GDBARGS += -ex 'set riscv use-compressed-breakpoints yes'
+-
+-
+ gdb: 
+-	$(GDB) $(GDBARGS)
++	$(GDB)
+ 
+ ##
+ ##  FOR testing lab grading script
+diff --git a/commands.gdb b/commands.gdb
+new file mode 100644
+index 0000000..b5bd488
+--- /dev/null
++++ b/commands.gdb
+@@ -0,0 +1,114 @@
++dashboard
++b main.c:42
++c
++si
++si
++ni
++ni
++ni
++n
++n
++n
++n
++n
++n
++n
++n
++n
++si
++si
++si
++si
++si
++si 26
++si
++si
++n
++n
++n
++n
++n
++s
++p cpus[$tp]->proc->name
++da
++u 112
++si
++si
++si
++si
++si
++si
++si
++si
++si
++si
++si
++si
++si
++si 10
++si 10
++si 10
++si
++si
++si
++si
++si
++si
++si 5
++si
++si
++si 10
++si 10
++si 10
++si 10
++n
++n
++n
++n
++n
++n
++n
++n
++n
++n
++n
++n
++n
++n
++s
++p cpus[$tp]->proc->name
++da
++n
++n
++n
++n
++n
++n
++n
++n
++n
++n
++n
++n
++n
++n
++n
++si
++si
++si
++si
++si
++si
++si
++si
++si
++si
++si
++si 10
++si 10
++si
++si
++si
++si
++si
++q
+diff --git a/user/find.c b/user/find.c
+new file mode 100644
+index 0000000..197240e
+--- /dev/null
++++ b/user/find.c
+@@ -0,0 +1,47 @@
++#include "kernel/types.h"
++#include "user.h"
++#include "kernel/fs.h"
++#include "kernel/stat.h"
++
++void find(char *path, char *target) {
++  char buf[512], *p;
++  int fd;
++  struct stat st;
++  struct dirent de;
++  if ((fd = open(path, 0)) < 0) {
++    fprintf(2, "find: cannot open %s\n", path);
++    return;
++  }
++
++  if (fstat(fd, &st) < 0) {
++    fprintf(2, "find: cannot stat %s\n", path);
++    close(fd);
++    return;
++  }
++  strcpy(buf,path);
++  p = buf+strlen(buf);
++  *p++ = '/';
++  while(read(fd,&de,sizeof(de)) == sizeof(de)){
++    if(de.inum == 0) continue;
++    if(strcmp(de.name, ".") == 0 || strcmp(de.name, "..") == 0) continue;
++    strcpy(p,de.name);
++    if(stat(buf,&st) >= 0){
++        if(st.type == T_FILE){
++            if(strcmp(target,de.name) == 0){
++                printf("%s\n",buf);
++            }
++        }else if(st.type == T_DIR){
++            if(strcmp(target,de.name) == 0){
++                printf("%s\n",buf);
++            }
++            find(buf,target);
++        }
++    }
++  }
++  close(fd);
++  return;
++}
++int main(int argc, char *argv[]) {
++    find(argv[1],argv[2]);
++    exit(0);
++}
+\ No newline at end of file
+diff --git a/user/pingpong.c b/user/pingpong.c
+new file mode 100644
+index 0000000..90d7211
+--- /dev/null
++++ b/user/pingpong.c
+@@ -0,0 +1,33 @@
++#include "kernel/types.h"
++#include "user.h"
++
++int main(int argc, char *argv[]) {
++  if (argc != 1) {
++    exit(-1);
++  }
++  int f2c[2];
++  int c2f[2];
++  pipe(f2c);
++  pipe(c2f);
++  int pid = fork();
++  if(pid == 0){
++    close(f2c[1]);
++    close(c2f[0]);
++    char buf[4];
++    read(f2c[0],buf,4);
++    printf("%d: received ping from pid %s\n",getpid(),buf);
++    itoa(getpid(),buf);
++    write(c2f[1],buf,4);
++    exit(0);
++  }else{
++    close(f2c[0]);
++    close(c2f[1]);
++    char buf[4];
++    itoa(getpid(),buf);
++    write(f2c[1],buf,4);
++    wait(&pid);
++    read(c2f[0],buf,4);
++    printf("%d: received pong from pid %s\n",getpid(),buf);
++  }
++  exit(0);
++}
+\ No newline at end of file
+diff --git a/user/sleep.c b/user/sleep.c
+new file mode 100644
+index 0000000..25593b4
+--- /dev/null
++++ b/user/sleep.c
+@@ -0,0 +1,13 @@
++#include "kernel/types.h"
++#include "user.h"
++
++int main(int argc, char *argv[]) {
++  if (argc != 2) {
++    printf("Sleep needs one argument!\n");
++    exit(-1);
++  }
++  int ticks = atoi(argv[1]);
++  sleep(ticks);
++  printf("(nothing happens for a little while)\n");
++  exit(0);
++}
+\ No newline at end of file
