@@ -82,6 +82,13 @@ struct trapframe {
 
 enum procstate { UNUSED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
+#define STATENAME(s) \
+    ((s) == UNUSED   ? "UNUSED"   : \
+     (s) == SLEEPING ? "SLEEPING" : \
+     (s) == RUNNABLE ? "RUNNABLE" : \
+     (s) == RUNNING  ? "RUNNING"  : \
+     "ZOMBIE")
+
 // Per-process state
 struct proc {
   struct spinlock lock;

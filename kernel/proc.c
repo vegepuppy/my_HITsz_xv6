@@ -291,6 +291,20 @@ void reparent(struct proc *p) {
   }
 }
 
+/**
+ * @param p process
+ * @brief print exit information of child process
+ */
+void infochild(struct proc *p) {
+  struct proc *pp;
+  int i = 0;
+  for(pp = proc; pp < &proc[NPROC]; pp++) {
+    if(pp->parent == p) {
+      exit_info("proc %d exit, child %d, pid %d, name %s, state %s\n", p->pid, i++, pp->pid, pp->name, STATENAME(pp->state));
+    }
+  }
+}
+
 // Exit the current process.  Does not return.
 // An exited process remains in the zombie state
 // until its parent calls wait().
@@ -336,7 +350,11 @@ void exit(int status) {
   // the parent-then-child rule says we have to lock it first.
   acquire(&original_parent->lock);
 
+  exit_info("proc %d exit, parent pid %d, name %s, state %s\n", p->pid, original_parent->pid, original_parent->name,STATENAME(original_parent->state));
+
   acquire(&p->lock);
+  // print info of child process
+  infochild(p);
 
   // Give any children to init.
   reparent(p);
